@@ -1,0 +1,51 @@
+reactive:
+  r2dbc:
+    driver: pool
+    protocol: mysql
+    host: 192.168.2.70
+    port: 3306
+    database: reactive
+    user: root
+    password: root
+    connect-timeout: 10s
+    ssl: false
+    pool:
+      max-size: 30
+      initial-size: 5
+      max-idle-time: 30m
+      max-create-connection-time: 2s
+  mongo:
+    cluster-type: standalone
+    mode: single
+    nodes: 192.168.2.70:27016
+    database: mongo
+    authentication-database: mongo
+    username: user
+    password: user
+    auto-index-creation: true
+    application-name: reactive-database-demo
+  redis:
+    host: 192.168.2.70
+    port: 6379
+    database: 0
+    password: root
+    timeout: 10s
+    client-name: reactive-database-demo
+    lettuce:
+      shutdown-timeout: 1s
+      pool:
+        max-active: 8
+        max-wait: 10s
+        max-idle: 4
+        min-idle: 0
+    session-database: 1
+    session-timeout: 8h
+    cache-ttl: 30m
+spring:
+  data:
+    redis:
+      repositories:
+        enabled: false
+logging:
+  level:
+    dev.yxy.reactive: trace
