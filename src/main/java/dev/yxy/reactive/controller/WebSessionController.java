@@ -2,15 +2,23 @@ package dev.yxy.reactive.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ZeroCopyHttpOutputMessage;
+import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
 import reactor.core.publisher.Mono;
 
+import java.io.*;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
@@ -83,5 +91,40 @@ public class WebSessionController {
                 return session;
             }).thenReturn("[transform] session to cookie");
         }
+    }
+
+    //下载文件
+    @RequestMapping("/download")
+    Mono<Void> download(ServerHttpResponse response) {
+        URL url = WebSessionController.class.getResource("/application.yml");
+        return Mono.just(new File(url.getFile())).flatMap(file -> {
+            ZeroCopyHttpOutputMessage zero = (ZeroCopyHttpOutputMessage) response;
+            zero.getHeaders().setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            zero.getHeaders().setContentDisposition(ContentDisposition.parse("attachment;filename=" + new String(file.getName().getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1)));
+            zero.getHeaders().setContentLength(file.length());
+            return zero.writeWith(DataBufferUtils.readInputStream(() -> new FileInputStream(file), new DefaultDataBufferFactory(), 64));
+        });
+    }
+
+    //上传文件
+    @PostMapping("/upload")
+    @ResponseBody
+    Mono<String> upload(@RequestPart(name = "file") FilePart filePart) {
+        return DataBufferUtils.join(filePart.content()).map(dataBuffer -> {
+            try (InputStream is = dataBuffer.asInputStream(true);
+                 ByteArrayOutputStream bos = new ByteArrayOutputStream(1024)) {
+                int count;
+                byte[] buff = new byte[1024];
+                while ((count = is.read(buff)) != -1) {
+                    bos.write(buff, 0, count);
+                }
+                bos.flush();
+                String s = new String(bos.toByteArray(), StandardCharsets.UTF_8);
+                System.out.println("#### " + s);
+                return "success";
+            } catch (IOException e) {
+                return "failure";
+            }
+        });
     }
 }
