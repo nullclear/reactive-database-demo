@@ -2,7 +2,7 @@ reactive:
   r2dbc:
     driver: pool
     protocol: mysql
-    host: 192.168.2.70
+    host: aliyun
     port: 3306
     database: reactive
     user: root
@@ -17,7 +17,7 @@ reactive:
   mongo:
     cluster-type: standalone
     mode: single
-    nodes: 192.168.2.70:27016
+    nodes: aliyun:27017
     database: mongo
     authentication-database: mongo
     username: user
@@ -25,7 +25,7 @@ reactive:
     auto-index-creation: true
     application-name: reactive-database-demo
   redis:
-    host: 192.168.2.70
+    host: aliyun
     port: 6379
     database: 0
     password: root

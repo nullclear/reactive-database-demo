@@ -3,6 +3,7 @@ package dev.yxy.reactive;
 import cn.hutool.json.JSONConfig;
 import cn.hutool.json.JSONUtil;
 import dev.yxy.reactive.model.entity.Person;
+import dev.yxy.reactive.util.LockUtil;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,11 @@ import org.springframework.data.redis.core.*;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import static dev.yxy.reactive.util.LockUtil.deviceKey;
 
 @SpringBootTest
 public class RedisTest {
@@ -31,6 +37,9 @@ public class RedisTest {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private LockUtil lockUtil;
 
     @Test
     void test_add() {
@@ -129,6 +138,35 @@ public class RedisTest {
         //reactive:07 = {"id":"1b968e2d-7e98-4811-9cd0-39054e6a2459","name":"robust","age":20,"roles":[Hello, World]}
 
         Thread.sleep(2000);
+    }
+
+    @Test
+    void test_lock() throws InterruptedException {
+        ExecutorService exec = Executors.newFixedThreadPool(2);
+        for (int i = 0; i < 7; i++) {
+            Thread.sleep(600);
+            exec.submit(() -> {
+                String key = deviceKey("1000");
+                if (lockUtil.lock(key)) {
+                    try {
+                        if (lockUtil.lock(key)) {
+                            try {
+                                logger.info("do something");
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            } finally {
+                                lockUtil.unlock(key);
+                            }
+                        }
+                    } finally {
+                        lockUtil.unlock(key);
+                    }
+                }
+            });
+        }
+        exec.shutdown();
+        exec.awaitTermination(10, TimeUnit.SECONDS);
     }
 
     //redisTemplate没有提供scan方法，自定义一个
