@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.*;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -151,8 +153,9 @@ public class RedisTest {
                     try {
                         if (lockUtil.lock(key)) {
                             try {
-                                logger.info("do something");
+                                logger.info("[{}] do something", Thread.currentThread().getId());
                                 Thread.sleep(1000);
+                                logger.info("[{}] finish something", Thread.currentThread().getId());
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             } finally {
@@ -167,6 +170,52 @@ public class RedisTest {
         }
         exec.shutdown();
         exec.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    @Autowired
+    private DefaultRedisScript<Boolean> expireScript;
+
+    @Test
+    void test_expire() {
+        for (int i = 0; i < 5; i++) {
+            String key = deviceKey("00" + i);
+            redisTemplate.opsForValue().set(key, key, Duration.ofSeconds(5));
+            redisTemplate.opsForSet().add("lock", key);
+        }
+        redisTemplate.expire("lock", Duration.ofSeconds(20));
+        Boolean aBoolean = redisTemplate.execute(expireScript, Collections.singletonList("lock"), 60);
+        System.out.println("aBoolean = " + aBoolean);
+    }
+
+    @Test
+    void test_lock_daemon() throws InterruptedException {
+        ExecutorService exec = Executors.newFixedThreadPool(5);
+        for (int i = 0; i < 10; i++) {
+            int temp = i;
+            exec.submit(() -> {
+                String key = deviceKey(String.valueOf(temp % 3));
+                if (lockUtil.lock(key)) {
+                    try {
+                        if (lockUtil.lock(key)) {
+                            try {
+                                logger.info("[{}] do something", Thread.currentThread().getId());
+                                int s = new Random().nextInt(10) * 1000;
+                                Thread.sleep(10000 + s);
+                                logger.info("[{}] finish something", Thread.currentThread().getId());
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            } finally {
+                                lockUtil.unlock(key);
+                            }
+                        }
+                    } finally {
+                        lockUtil.unlock(key);
+                    }
+                }
+            });
+        }
+        exec.shutdown();
+        exec.awaitTermination(100, TimeUnit.SECONDS);
     }
 
     //redisTemplate没有提供scan方法，自定义一个

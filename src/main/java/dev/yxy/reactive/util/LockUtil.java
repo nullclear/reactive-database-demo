@@ -11,10 +11,13 @@ import org.springframework.stereotype.Component;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * 锁的粒度不够细
+ */
 @Component
 public class LockUtil {
     private static final Logger logger = LoggerFactory.getLogger(LockUtil.class);
@@ -22,9 +25,11 @@ public class LockUtil {
     //本机地址
     private static final String address;
     //默认加锁时间
-    private static final long DEFAULT_SECOND = 60;
+    public static final long DEFAULT_SECOND = 90;
     //超时时间，单位ms
     private static final long TIME_OUT = 50;
+    //锁Key的集合
+    public static final String LOCK_KEYS = "LOCK_KEYS";
 
     static {
         String addr;
@@ -94,6 +99,7 @@ public class LockUtil {
             if (Objects.equals(redisTemplate.opsForValue().setIfAbsent(key, value, Duration.ofSeconds(seconds)), true)) {
                 local.set(key);//设置线程持有key
                 count.set(0);//重置计数器
+                redisTemplate.opsForSet().add(LOCK_KEYS, key);//加入锁Key的集合
                 logger.trace("[{}]加锁[{}]成功", value, key);
                 return true;
             } else {
@@ -127,6 +133,7 @@ public class LockUtil {
                 if (Objects.equals(redisTemplate.opsForValue().setIfAbsent(key, value, Duration.ofSeconds(seconds)), true)) {
                     local.set(key);//设置线程持有key
                     count.set(0);//重置计数器
+                    redisTemplate.opsForSet().add(LOCK_KEYS, key);//加入锁Key的集合
                     logger.trace("[{}]加锁[{}]成功", value, key);
                     return true;
                 }
@@ -181,7 +188,7 @@ public class LockUtil {
      * @return 是否删除成功
      */
     private boolean checkAndDelete(String key, String value) {
-        Boolean result = redisTemplate.execute(unlockScript, Collections.singletonList(key), value);
+        Boolean result = redisTemplate.execute(unlockScript, List.of(key, LOCK_KEYS), value);
         return Objects.requireNonNullElse(result, false);
     }
 

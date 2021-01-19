@@ -18,4 +18,12 @@ public class ScriptUtil {
         defaultRedisScript.setLocation(new ClassPathResource("redis/unlock.lua"));
         return defaultRedisScript;
     }
+
+    @Bean(name = "expireScript")
+    public DefaultRedisScript<Boolean> expireScript() {
+        DefaultRedisScript<Boolean> defaultRedisScript = new DefaultRedisScript<>();
+        defaultRedisScript.setResultType(Boolean.class);
+        defaultRedisScript.setLocation(new ClassPathResource("redis/expire.lua"));
+        return defaultRedisScript;
+    }
 }
