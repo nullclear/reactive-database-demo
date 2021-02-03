@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.*;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.util.Assert;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -216,6 +217,20 @@ public class RedisTest {
         }
         exec.shutdown();
         exec.awaitTermination(100, TimeUnit.SECONDS);
+    }
+
+    @Autowired
+    private DefaultRedisScript<String> captchaScript;
+
+    @Test
+    void test_findAndRemove() {
+        String key = "captcha";
+        String value = "1234";
+        redisTemplate.opsForValue().set(key, value);
+        String result = redisTemplate.execute(captchaScript, Collections.singletonList(key));
+        Assert.isTrue(Objects.equals(value, result), "获取的值不对");
+        Object o = redisTemplate.opsForValue().get(key);
+        Assert.isNull(o, "缓存没有删除");
     }
 
     //redisTemplate没有提供scan方法，自定义一个

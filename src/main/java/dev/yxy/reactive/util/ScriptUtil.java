@@ -26,4 +26,12 @@ public class ScriptUtil {
         defaultRedisScript.setLocation(new ClassPathResource("redis/expire.lua"));
         return defaultRedisScript;
     }
+
+    @Bean(name = "captchaScript")
+    public DefaultRedisScript<String> captchaScript() {
+        DefaultRedisScript<String> defaultRedisScript = new DefaultRedisScript<>();
+        defaultRedisScript.setResultType(String.class);
+        defaultRedisScript.setLocation(new ClassPathResource("redis/captcha.lua"));
+        return defaultRedisScript;
+    }
 }
