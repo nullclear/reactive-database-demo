@@ -147,7 +147,7 @@ public class RedisTest {
     void test_lock() throws InterruptedException {
         ExecutorService exec = Executors.newFixedThreadPool(2);
         for (int i = 0; i < 7; i++) {
-            Thread.sleep(600);
+            //Thread.sleep(600);
             exec.submit(() -> {
                 String key = deviceKey("1000");
                 if (lockUtil.lock(key)) {
@@ -165,6 +165,35 @@ public class RedisTest {
                         }
                     } finally {
                         lockUtil.unlock(key);
+                    }
+                }
+            });
+        }
+        exec.shutdown();
+        exec.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void test_lockTimeOut() throws InterruptedException {
+        ExecutorService exec = Executors.newFixedThreadPool(2);
+        for (int i = 0; i < 7; i++) {
+            exec.submit(() -> {
+                String key = deviceKey("1000");
+                if (lockUtil.lockTimeOut(key)) {
+                    try {
+                        if (lockUtil.lockTimeOut(key)) {
+                            try {
+                                logger.info("[{}] do something", Thread.currentThread().getId());
+                                Thread.sleep(1000);
+                                logger.info("[{}] finish something", Thread.currentThread().getId());
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            } finally {
+                                lockUtil.unlock();
+                            }
+                        }
+                    } finally {
+                        lockUtil.unlock();
                     }
                 }
             });

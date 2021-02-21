@@ -26,8 +26,11 @@ public class LockUtil {
     private static final String address;
     //默认加锁时间
     public static final long DEFAULT_SECOND = 90;
-    //超时时间，单位ms
-    private static final long TIME_OUT = 50;
+    //自旋时间，单位ms
+    private static final long TIME_OUT = 500;
+    //再尝试次数
+    private static final long NUM = 3;
+
     //锁Key的集合
     public static final String LOCK_KEYS = "LOCK_KEYS";
 
@@ -113,7 +116,18 @@ public class LockUtil {
     }
 
     /**
-     * 分布式重入互斥锁，加入多次尝试与超时功能
+     * 分布式重入互斥锁(超时，多次尝试)
+     *
+     * @param key 互斥key
+     * @return 是否获取成功
+     */
+    @Deprecated
+    public boolean lockTimeOut(@NotNull String key) {
+        return lockTimeOut(key, value.get(), DEFAULT_SECOND);
+    }
+
+    /**
+     * 分布式重入互斥锁(超时，多次尝试)
      *
      * @param key     互斥key
      * @param value   分布式唯一值
@@ -121,8 +135,8 @@ public class LockUtil {
      * @return 是否获取成功
      */
     @Deprecated
-    private boolean lock_timeout(@NotNull String key, @NotNull String value, long seconds) {
-        long start = System.currentTimeMillis();
+    private boolean lockTimeOut(@NotNull String key, @NotNull String value, long seconds) {
+        long times = 0L;
         if (Objects.equals(local.get(), key)) {//判断本线程是否已经持有此key
             count.set(count.get() + 1);//计数器加一
             redisTemplate.expire(key, Duration.ofSeconds(seconds)); //延长持有时间
@@ -130,6 +144,8 @@ public class LockUtil {
             return true;
         } else if (Objects.equals(local.get(), null)) {//如果是未持有的key，则需要去抢占
             for (; ; ) {
+                logger.info("{}尝试加锁", Thread.currentThread().getName());
+                // 尝试加锁
                 if (Objects.equals(redisTemplate.opsForValue().setIfAbsent(key, value, Duration.ofSeconds(seconds)), true)) {
                     local.set(key);//设置线程持有key
                     count.set(0);//重置计数器
@@ -137,16 +153,15 @@ public class LockUtil {
                     logger.trace("[{}]加锁[{}]成功", value, key);
                     return true;
                 }
-                if (System.currentTimeMillis() - start >= TIME_OUT) {
+                // 如果机会耗尽，则停止尝试
+                if (times >= NUM) {
                     logger.trace("[{}]加锁[{}]失败", value, key);
                     return false;
                 }
-                try {
-                    // 休眠一会，不然反复执行循环会一直失败
-                    Thread.sleep(TIME_OUT);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                // 自旋一会，不然反复执行循环会一直失败
+                long threshold = System.currentTimeMillis() + TIME_OUT;
+                while (System.currentTimeMillis() < threshold) ;
+                times++;
             }
         } else {
             logger.warn("raw key [{}] your key [{}]", local.get(), key);
@@ -155,28 +170,40 @@ public class LockUtil {
     }
 
     /**
-     * 分布式重入互斥锁
+     * 分布式重入锁解锁
      *
      * @param key 互斥key
      */
     public void unlock(@NotNull String key) {
-        if (Objects.equals(local.get(), key)) {//如果当前线程未持有此key则不需要解锁
-            if (count.get() > 0) { //解锁重入锁要先对计数器做减数操作
-                count.set(count.get() - 1);
-                logger.trace("[{}]对锁[{}]计数器减少结果[{}]", value.get(), key, count.get());
-            } else {
-                //检查并删除，原子操作
-                boolean result = checkAndDelete(key, value.get());
-                if (result) {
-                    logger.info("[{}]删除锁[{}]成功", value.get(), key);
-                } else {
-                    logger.warn("[{}]删除锁[{}]失败", value.get(), key);
-                }
-                local.remove();//不管redis是否能删除key，当前线程都不应该再持有key
-                logger.trace("[{}]解锁[{}]成功", value.get(), key);
-            }
+        //如果当前线程未持有此key则不需要解锁
+        if (Objects.equals(local.get(), key)) {
+            unlock();
         } else {
             logger.warn("[{}]未持有锁[{}]", value.get(), key);
+        }
+    }
+
+    /**
+     * 分布式重入锁解锁
+     */
+    public void unlock() {
+        String key = local.get();
+        // 解锁重入锁要先对计数器做减数操作
+        if (count.get() > 0) {
+            count.set(count.get() - 1);
+            logger.trace("[{}]对锁[{}]计数器减少结果[{}]", value.get(), key, count.get());
+        } else {
+            // 检查并删除，原子操作
+            boolean result = checkAndDelete(key, value.get());
+            if (result) {
+                logger.info("[{}]删除锁[{}]成功", value.get(), key);
+            } else {
+                // todo 如果删除失败了，应该怎么办呢？
+                logger.warn("[{}]删除锁[{}]失败", value.get(), key);
+            }
+            // 不管redis是否能删除key，当前线程都不应该再持有key
+            local.remove();
+            logger.trace("[{}]解锁[{}]成功", value.get(), key);
         }
     }
 
