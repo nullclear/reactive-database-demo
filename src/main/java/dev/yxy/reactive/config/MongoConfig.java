@@ -26,14 +26,14 @@ import org.springframework.data.r2dbc.repository.R2dbcRepository;
  * <br/>
  * spring自动配置的过程分为以下四步<br/>
  * <br/>
- * 一、configureClientSettings() -> MongoClientSettings-> MongoClient + getDatabaseName() -> MongoDatabaseFactory<br/>
- * 二、configureConverters -> MongoCustomConversions -> MongoMappingContext<br/>
- * 三、MongoDatabaseFactory + MongoMappingContext + MongoCustomConversions-> MappingMongoConverter<br/>
- * 四、MongoDatabaseFactory + MappingMongoConverter -> MongoTemplate<br/>
+ * 一、{@link #configureClientSettings} -> {@link #mongoClientSettings}-> {@link #mongoClient()} + {@link #getDatabaseName()} -> {@link #mongoDbFactory}<br/>
+ * 二、{@link #configureConverters} -> {@link #customConversions MongoCustomConversions} -> {@link #mongoMappingContext MongoMappingContext}<br/>
+ * 三、{@link #mongoDbFactory} + {@link #mongoMappingContext MongoMappingContext} + {@link #customConversions MongoCustomConversions}-> {@link #mappingMongoConverter}<br/>
+ * 四、{@link #mongoDbFactory} + {@link #mappingMongoConverter} -> MongoTemplate<br/>
  * <br/>
  * 其他细节参考以下的类<br/>
- * {@link MongoReactiveDataAutoConfiguration}<br/>
- * {@link MongoDataAutoConfiguration}<br/>
+ * {@link MongoReactiveDataAutoConfiguration#reactiveMongoTemplate ReactiveMongoTemplate}<br/>
+ * {@link MongoDataAutoConfiguration}中MongoDatabaseFactoryDependentConfiguration.class有MongoTemplate的来源<br/>
  * <br/>
  */
 @Configuration

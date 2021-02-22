@@ -1,8 +1,8 @@
 package dev.yxy.reactive;
 
-import cn.hutool.json.JSONConfig;
 import cn.hutool.json.JSONUtil;
 import dev.yxy.reactive.model.entity.Person;
+import dev.yxy.reactive.util.CustomRedisSerializer;
 import dev.yxy.reactive.util.LockUtil;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -27,8 +27,6 @@ import static dev.yxy.reactive.util.LockUtil.deviceKey;
 public class RedisTest {
     private static final Logger logger = LoggerFactory.getLogger(RedisTest.class);
 
-    public static final JSONConfig JSON_CONFIG = JSONConfig.create().setIgnoreError(true).setOrder(true).setDateFormat("yyyy-MM-dd HH:mm:ss");
-
     @Autowired
     private ReactiveRedisTemplate<String, Object> reactiveRedisTemplate;
 
@@ -44,6 +42,9 @@ public class RedisTest {
     @Autowired
     private LockUtil lockUtil;
 
+    /**
+     * 测试自定义序列化器{@link CustomRedisSerializer}序列化
+     */
     @Test
     void test_add() {
         HashSet<String> set = new HashSet<>();
@@ -85,6 +86,9 @@ public class RedisTest {
         logger.info("add successfully");
     }
 
+    /**
+     * 测试自定义序列化器{@link CustomRedisSerializer}序列化
+     */
     @Test
     void test_add_string() {
         HashSet<String> set = new HashSet<>();
@@ -126,23 +130,29 @@ public class RedisTest {
         logger.info("add string successfully");
     }
 
+    /**
+     * 测试自定义序列化器{@link CustomRedisSerializer}反序列化后在reactive流中的影响
+     */
     @Test
     void test_get() throws InterruptedException {
         //看看null对reactive的影响
         reactiveStringRedisTemplate.opsForValue().get("reactive:01").map(s -> JSONUtil.parse(s).<Person>toBean(Person.class, true)).subscribe(x -> logger.info("reactive:01 = " + x.toString()));
-        //没有输出
+        // todo 没有输出
 
         //看看{}reactive的影响
         reactiveStringRedisTemplate.opsForValue().get("reactive:03").map(s -> JSONUtil.parse(s).<Person>toBean(Person.class, true)).subscribe(x -> logger.info("reactive:03 = " + x.toString()));
-        //reactive:03 = {"id":"null","name":"null","age":null,"roles":null}
+        // todo reactive:03 = {"id":"null","name":"null","age":null,"roles":null}
 
         //获取一个存在的实体类
         reactiveStringRedisTemplate.opsForValue().get("reactive:07").map(s -> JSONUtil.parse(s).<Person>toBean(Person.class, true)).subscribe(x -> logger.info("reactive:07 = " + x.toString()));
-        //reactive:07 = {"id":"1b968e2d-7e98-4811-9cd0-39054e6a2459","name":"robust","age":20,"roles":[Hello, World]}
+        // todo reactive:07 = {"id":"1b968e2d-7e98-4811-9cd0-39054e6a2459","name":"robust","age":20,"roles":[Hello,World]}
 
         Thread.sleep(2000);
     }
 
+    /**
+     * 测试互斥锁
+     */
     @Test
     void test_lock() throws InterruptedException {
         ExecutorService exec = Executors.newFixedThreadPool(2);
@@ -173,6 +183,10 @@ public class RedisTest {
         exec.awaitTermination(10, TimeUnit.SECONDS);
     }
 
+    /**
+     * 测试阻塞自选锁
+     * 成功率比{@link #test_lock()}高了许多
+     */
     @Test
     void test_lockTimeOut() throws InterruptedException {
         ExecutorService exec = Executors.newFixedThreadPool(2);
@@ -205,6 +219,9 @@ public class RedisTest {
     @Autowired
     private DefaultRedisScript<Boolean> expireScript;
 
+    /**
+     * 测试原子操作-延长缓存寿命
+     */
     @Test
     void test_expire() {
         for (int i = 0; i < 5; i++) {
@@ -217,8 +234,11 @@ public class RedisTest {
         System.out.println("aBoolean = " + aBoolean);
     }
 
+    /**
+     * 测试定时任务执行延长redis锁寿命的操作
+     */
     @Test
-    void test_lock_daemon() throws InterruptedException {
+    void test_lock_scheduled() throws InterruptedException {
         ExecutorService exec = Executors.newFixedThreadPool(5);
         for (int i = 0; i < 10; i++) {
             int temp = i;
@@ -251,6 +271,9 @@ public class RedisTest {
     @Autowired
     private DefaultRedisScript<String> captchaScript;
 
+    /**
+     * 测试查找并删除
+     */
     @Test
     void test_findAndRemove() {
         String key = "captcha";

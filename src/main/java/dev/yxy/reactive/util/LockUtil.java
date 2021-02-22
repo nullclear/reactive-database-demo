@@ -26,7 +26,7 @@ public class LockUtil {
     private static final String address;
     //默认加锁时间
     public static final long DEFAULT_SECOND = 90;
-    //自旋时间，单位ms
+    //单次自旋时间，单位ms
     private static final long TIME_OUT = 500;
     //再尝试次数
     private static final long NUM = 3;
@@ -116,26 +116,41 @@ public class LockUtil {
     }
 
     /**
-     * 分布式重入互斥锁(超时，多次尝试)
+     * 分布式重入锁(阻塞，超时返回，多次尝试)
      *
      * @param key 互斥key
      * @return 是否获取成功
      */
     @Deprecated
     public boolean lockTimeOut(@NotNull String key) {
-        return lockTimeOut(key, value.get(), DEFAULT_SECOND);
+        return lockTimeOut(key, value.get(), DEFAULT_SECOND, TIME_OUT, NUM);
     }
 
     /**
-     * 分布式重入互斥锁(超时，多次尝试)
+     * 分布式重入锁(阻塞，超时返回，多次尝试)
+     *
+     * @param key     互斥key
+     * @param timeOut 单次自旋时间(ms)
+     * @param num     再尝试次数
+     * @return 是否获取成功
+     */
+    @Deprecated
+    public boolean lockTimeOut(@NotNull String key, long timeOut, long num) {
+        return lockTimeOut(key, value.get(), DEFAULT_SECOND, timeOut, num);
+    }
+
+    /**
+     * 分布式重入锁(阻塞，超时返回，多次尝试)
      *
      * @param key     互斥key
      * @param value   分布式唯一值
      * @param seconds 持有时间
+     * @param timeOut 单次自旋时间(ms)
+     * @param num     再尝试次数
      * @return 是否获取成功
      */
     @Deprecated
-    private boolean lockTimeOut(@NotNull String key, @NotNull String value, long seconds) {
+    private boolean lockTimeOut(@NotNull String key, @NotNull String value, long seconds, long timeOut, long num) {
         long times = 0L;
         if (Objects.equals(local.get(), key)) {//判断本线程是否已经持有此key
             count.set(count.get() + 1);//计数器加一
@@ -144,7 +159,6 @@ public class LockUtil {
             return true;
         } else if (Objects.equals(local.get(), null)) {//如果是未持有的key，则需要去抢占
             for (; ; ) {
-                logger.info("{}尝试加锁", Thread.currentThread().getName());
                 // 尝试加锁
                 if (Objects.equals(redisTemplate.opsForValue().setIfAbsent(key, value, Duration.ofSeconds(seconds)), true)) {
                     local.set(key);//设置线程持有key
@@ -154,12 +168,12 @@ public class LockUtil {
                     return true;
                 }
                 // 如果机会耗尽，则停止尝试
-                if (times >= NUM) {
+                if (times >= num) {
                     logger.trace("[{}]加锁[{}]失败", value, key);
                     return false;
                 }
                 // 自旋一会，不然反复执行循环会一直失败
-                long threshold = System.currentTimeMillis() + TIME_OUT;
+                long threshold = System.currentTimeMillis() + timeOut;
                 while (System.currentTimeMillis() < threshold) ;
                 times++;
             }

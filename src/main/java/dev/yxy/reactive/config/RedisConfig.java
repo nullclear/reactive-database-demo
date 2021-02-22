@@ -2,13 +2,11 @@ package dev.yxy.reactive.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import dev.yxy.reactive.property.RedisProperty;
 import dev.yxy.reactive.util.CustomRedisSerializer;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
@@ -180,35 +178,38 @@ public class RedisConfig extends CachingConfigurerSupport {
     }
 
     //spring session序列化器
-    //注意: 如果与spring security结合，请去除此Bean，会导致无法反序列化
+    // todo 注意: 如果与spring security结合，请去除此Bean，会导致无法反序列化
     //可能有解决的办法，但是目前为止，不知道
     //@Bean(name = {"springSessionDefaultRedisSerializer"})
     public RedisSerializer<Object> crateRedisSerializer() {
         ObjectMapper mapper = new ObjectMapper();
         //设置可见性
         mapper.setVisibility(PropertyAccessor.IS_GETTER, JsonAutoDetect.Visibility.PUBLIC_ONLY);
-        //设置激活默认类型
-        mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.WRAPPER_OBJECT);
-        //设置日期格式化
-        mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
-        //设置空值不报错
-        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        //设置未知属性不报错
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         //设置序列时排除null
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        //设置日期格式化
+        mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
         //设置地区
         mapper.setLocale(Locale.CHINA);
         //设置时区
         mapper.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        //设置空值不报错
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        //设置未知属性不报错
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         //设置允许单引号
         mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
         //设置char数组转为json数组
         mapper.configure(SerializationFeature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS, true);
+        // todo 设置激活默认类型，这一句有奇怪的序列化属性，建议去掉
+        //mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.WRAPPER_OBJECT);
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
 
-    //Redis Cache Manager
+    /**
+     * Redis Cache Manager
+     * 序列化器配置更改{@link RedisCacheConfiguration#serializeValuesWith}即可
+     */
     @Bean(name = "cacheManager")
     @Primary
     public CacheManager createCacheManager(LettuceConnectionFactory lettuceConnectionFactory) {
