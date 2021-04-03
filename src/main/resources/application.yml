@@ -3,10 +3,10 @@ reactive:
     driver: pool
     protocol: mysql
     host: aliyun
-    port: 3306
+    port: 3307
     database: reactive
     user: root
-    password: root
+    password: root_mysql
     connect-timeout: 10s
     ssl: false
     pool:
@@ -17,7 +17,7 @@ reactive:
   mongo:
     cluster-type: standalone
     mode: single
-    nodes: aliyun:27017
+    nodes: aliyun:27018
     database: mongo
     authentication-database: mongo
     username: user
@@ -26,9 +26,9 @@ reactive:
     application-name: reactive-database-demo
   redis:
     host: aliyun
-    port: 6379
+    port: 6380
     database: 0
-    password: root
+    password: root_redis
     timeout: 10s
     client-name: reactive-database-demo
     lettuce:
