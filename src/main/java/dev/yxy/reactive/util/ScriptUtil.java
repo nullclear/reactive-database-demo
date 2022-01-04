@@ -34,4 +34,12 @@ public class ScriptUtil {
         defaultRedisScript.setLocation(new ClassPathResource("redis/captcha.lua"));
         return defaultRedisScript;
     }
+
+    @Bean(name = "counterScript")
+    public DefaultRedisScript<Long> counterScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setLocation(new ClassPathResource("redis/counter.lua"));
+        return script;
+    }
 }
